@@ -1,0 +1,30 @@
+{
+  "name": "auto-slider",
+  "version": "0.1.0",
+  "exports": "./src/desktop/main.ts",
+  "tasks": {
+    "desktop:dev": "deno desktop --hmr src/desktop/main.ts",
+    "desktop:build": "deno desktop --backend webview --output ./dist/autoSlider src/desktop/main.ts",
+    "desktop:server": "deno run --allow-net --allow-env src/desktop/main.ts",
+    "desktop:webview": "deno run --allow-all src/desktop/webview-main.ts"
+  },
+  "imports": {
+    "hono": "npm:hono@4.7.2",
+    "ai": "npm:ai@7.0.135",
+    "@ai-sdk/provider-utils": "npm:@ai-sdk/provider-utils@5.0.58",
+    "@ai-sdk/openai-compatible": "npm:@ai-sdk/openai-compatible@3.0.67",
+    "ollama-ai-provider-v2": "npm:ollama-ai-provider-v2@4.0.1",
+    "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
+    "@webview/webview": "jsr:@webview/webview@0.9.0"
+  },
+  "desktop": {
+    "app": {
+      "name": "Gerador de Artefatos",
+      "identifier": "com.braian.geradordeartefatos"
+    },
+    "backend": "webview",
+    "output": {
+      "windows": "./dist/autoSlider"
+    }
+  }
+}
