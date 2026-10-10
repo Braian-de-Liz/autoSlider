@@ -5,7 +5,8 @@ import { toProviderSchema } from './schema.ts'
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
 interface OllamaResponse {
-  response?: string
+  /** /api/chat devolve a resposta em message.content (o campo `response` é do /api/generate). */
+  message?: { role?: string; content?: string }
   done_reason?: string
   prompt_eval_count?: number
   eval_count?: number
@@ -29,9 +30,11 @@ export class OllamaNative implements LLMProvider {
     const started = Date.now()
     const body = {
       model: this.config.model,
-      system: args.system,
-      messages: args.messages,
+      // /api/chat ignora um campo `system` no corpo: o prompt de sistema vai como mensagem.
+      messages: [{ role: 'system' as const, content: args.system }, ...args.messages],
       stream: false,
+      // think=false: Qwen3 e similares não gastam o orçamento de tokens em raciocínio antes do JSON.
+      think: false,
       format: toProviderSchema(args.schema, 'ollama'),
       options: { temperature: args.temperature ?? 0.2, num_ctx: this.config.numCtx }
     }
@@ -63,11 +66,12 @@ export class OllamaNative implements LLMProvider {
     if ((payload.prompt_eval_count ?? 0) >= this.config.numCtx * 0.95) {
       throw new LLMError('E_PROVIDER', 'Contexto Ollama excedido ou prompt truncado', { details: { promptEvalCount: payload.prompt_eval_count, numCtx: this.config.numCtx } })
     }
-    if (!payload.response) throw new LLMError('E_SPEC_PARSE', 'Ollama não retornou conteúdo JSON')
+    const content = payload.message?.content
+    if (!content) throw new LLMError('E_SPEC_PARSE', 'Ollama não retornou conteúdo JSON', { retryable: true })
 
     let value: import('@sinclair/typebox').Static<T>
     try {
-      value = JSON.parse(payload.response) as import('@sinclair/typebox').Static<T>
+      value = JSON.parse(content) as import('@sinclair/typebox').Static<T>
     } catch {
       throw new LLMError('E_SPEC_PARSE', 'Resposta do Ollama não contém JSON válido', { retryable: true })
     }

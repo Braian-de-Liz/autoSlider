@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import type { Orchestrator } from '../agent/orchestrator.ts'
+import type { Attachment, Orchestrator } from '../agent/orchestrator.ts'
 import { RunStore, type RunEvent } from './run-store.ts'
 import { pageTemplate, statusTemplate } from './templates.ts'
 import { FAVICON_1X1_PNG } from './static-content.ts'
@@ -24,17 +24,22 @@ export function createDesktopApp(store = new RunStore(), orchestrator?: Orchestr
     const contentType = c.req.header('content-type') ?? ''
     let prompt = ''
     let kind = ''
+    let attachments: Attachment[] = []
     if (contentType.includes('application/json')) {
       const body = await c.req.json<{ prompt?: string; kind?: string }>()
       prompt = body.prompt ?? ''
       kind = body.kind ?? ''
     } else {
-      const body = await c.req.parseBody()
-      prompt = String(body.prompt ?? '')
-      kind = String(body.kind ?? '')
+      const body = await c.req.parseBody({ all: true })
+      const field = (name: string) => String([body[name]].flat()[0] ?? '')
+      prompt = field('prompt')
+      kind = field('kind')
+      // Formulário sem arquivo escolhido manda uma parte vazia (nome ''): não é anexo.
+      const files = [body.anexo].flat().filter((value): value is File => value instanceof File && value.size > 0 && value.name !== '')
+      attachments = await Promise.all(files.map(async (file) => ({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) })))
     }
     const first = orchestrator
-      ? orchestrator.start({ prompt: prompt || 'Crie um gráfico de vendas por categoria.', kind: kind || undefined })
+      ? orchestrator.start({ prompt: prompt || 'Crie um gráfico de vendas por categoria.', kind: kind || undefined, ...(attachments.length ? { attachments } : {}) })
       : store.start()
     // O run pode já ter avançado (ou falhado) antes desta resposta; devolve o estado atual.
     return c.html(statusTemplate(store.get(first.runId) ?? first))

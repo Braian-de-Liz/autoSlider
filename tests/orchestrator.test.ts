@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { TSchema } from '@sinclair/typebox'
 import { createDesktopApp } from '../src/desktop/app.ts'
-import { Orchestrator, type ChartRender, type OrchestratorOptions } from '../src/agent/orchestrator.ts'
+import { Orchestrator, defaultChartRender, type ChartRender, type OrchestratorOptions, type RunRequest } from '../src/agent/orchestrator.ts'
+import { MAX_INGEST_BYTES } from '../src/ingest/common.ts'
 import { RunStore, type RunEvent } from '../src/desktop/run-store.ts'
 import { DatasetCatalog, makeDataset } from '../src/data/catalog.ts'
 import { LLMError, type GenerationResult, type LLMProvider, type Msg } from '../src/llm/contracts.ts'
@@ -28,7 +31,7 @@ const fakeRenderer: ChartRender = async () => ({
   svg: new TextEncoder().encode('<svg></svg>')
 })
 
-async function runOnce(provider: LLMProvider, request: { prompt: string; kind?: string } = { prompt: 'gráfico' }, options?: OrchestratorOptions, renderer: ChartRender = fakeRenderer): Promise<RunEvent> {
+async function runOnce(provider: LLMProvider, request: RunRequest = { prompt: 'gráfico' }, options?: OrchestratorOptions, renderer: ChartRender = fakeRenderer): Promise<RunEvent> {
   const store = new RunStore()
   const terminal = waitForTerminal(store)
   new Orchestrator(store, provider, renderer, options).start(request)
@@ -73,7 +76,7 @@ describe('RF-03: Orchestrator com ChartSpec', () => {
   })
 })
 
-describe('Seção 6.4: validação semântica', () => {
+describe('RF-03/RNF-04: validação semântica (seção 6.4)', () => {
   it('E_REF: datasetId inexistente', async () => {
     const event = await runOnce(fakeProvider({ ...validChart, datasetId: 'nao-existe' }))
     expect(event.errorCode).toBe('E_SPEC_SEMANTICA')
@@ -93,7 +96,7 @@ describe('Seção 6.4: validação semântica', () => {
   })
 })
 
-describe('E_ROTA: formato não suportado', () => {
+describe('RF-02: E_ROTA para formato sem pipeline', () => {
   it('recusa pptx sem chamar o provedor', async () => {
     const calls: Calls = { count: 0 }
     const event = await runOnce(fakeProvider(validChart, { calls }), { prompt: 'slides', kind: 'pptx' })
@@ -210,7 +213,7 @@ describe('RF-04: entrega do artefato', () => {
   })
 })
 
-describe('Interface reflete o projeto real', () => {
+describe('RF-19: interface reflete o projeto real', () => {
   it('mostra localOnly, provedor e desabilita formatos sem pipeline', async () => {
     const store = new RunStore()
     const orchestrator = new Orchestrator(store, fakeProvider(validChart), fakeRenderer, { providerLabel: { provider: 'ollama-native', model: 'qwen3:8b' } })
@@ -221,4 +224,107 @@ describe('Interface reflete o projeto real', () => {
     expect(html).toContain('<option value="pptx" disabled>')
     expect(html).toContain('vendas')
   })
+})
+
+const enc = (text: string) => new TextEncoder().encode(text)
+const INGEST_FIXTURES = join(import.meta.dirname ?? '.', '..', 'specs', 'fixtures', 'ingest')
+const fixtureAttachment = (name: string) => ({ name, bytes: new Uint8Array(readFileSync(join(INGEST_FIXTURES, name))) })
+
+const estoque = { name: 'estoque.csv', bytes: enc('item,qtd,loja\nParafuso,100,A\nPorca,80,A\nArruela,60,B\nPrego,50,B\nCabo,40,A\nFio,30,B\nTubo,20,A\nCola,10,B\n') }
+const estoqueChart = { id: 'estoque-item', tipo: 'bar' as const, datasetId: 'estoque', x: { campo: 'item', titulo: 'Item' }, y: { campo: 'qtd', titulo: 'Quantidade', agregacao: 'sum' as const }, titulo: 'Estoque por item' }
+
+describe('RF-01: anexos no pedido (parcial)', () => {
+  it('o anexo vira o catálogo do run: o prompt tem as colunas dele, no máximo 5 linhas e nada do exemplo', async () => {
+    const calls: Calls = { count: 0 }
+    const store = new RunStore()
+    const routed: string[] = []
+    store.subscribe((event) => { if (event.state === 'ROTEADO') routed.push(event.message) })
+    const terminal = waitForTerminal(store)
+    new Orchestrator(store, fakeProvider(estoqueChart, { calls }), fakeRenderer).start({ prompt: 'gráfico', attachments: [estoque] })
+    expect((await terminal).state).toBe('ENTREGUE')
+    const prompt = calls.messages![0].content
+    expect(prompt).toContain('dataset id="estoque"')
+    expect(prompt).toContain('colunas: item (string), qtd (number), loja (string)')
+    expect(prompt.split('\n').filter((line) => line.startsWith('{'))).toHaveLength(5)
+    expect(prompt).not.toContain('Cola')
+    expect(prompt).not.toContain('categoria')
+    expect(prompt).not.toContain('dataset id="vendas"')
+    expect(routed[0]).toContain('Anexos: estoque.csv → estoque (3 colunas, 8 linhas)')
+  })
+
+  it('spec que cita o dataset de exemplo com anexo presente falha com E_REF, sem usar o exemplo', async () => {
+    const calls: Calls = { count: 0 }
+    const event = await runOnce(fakeProvider(validChart, { calls }), { prompt: 'x', attachments: [estoque] })
+    expect(event.state).toBe('FALHOU')
+    expect(event.errorCode).toBe('E_SPEC_SEMANTICA')
+    expect(event.message).toContain('E_REF')
+    expect(event.message).toContain('3 tentativas')
+    expect(event.message).toContain('Disponíveis: estoque')
+    expect(calls.count).toBe(3)
+  })
+
+  it('CSV vazio termina em E_INGEST_INVALIDO sem chamar o provedor', async () => {
+    const calls: Calls = { count: 0 }
+    const event = await runOnce(fakeProvider(estoqueChart, { calls }), { prompt: 'x', attachments: [{ name: 'vazio.csv', bytes: new Uint8Array(0) }] })
+    expect(event).toMatchObject({ state: 'FALHOU', errorCode: 'E_INGEST_INVALIDO' })
+    expect(calls.count).toBe(0)
+  })
+
+  it('arquivo acima do limite termina em E_INGEST_LIMITE sem chamar o provedor', async () => {
+    const calls: Calls = { count: 0 }
+    const event = await runOnce(fakeProvider(estoqueChart, { calls }), { prompt: 'x', attachments: [{ name: 'grande.csv', bytes: new Uint8Array(MAX_INGEST_BYTES + 1) }] })
+    expect(event).toMatchObject({ state: 'FALHOU', errorCode: 'E_INGEST_LIMITE' })
+    expect(calls.count).toBe(0)
+  })
+
+  it('formato de anexo desconhecido e Markdown sem tabela falham antes do provedor', async () => {
+    const calls: Calls = { count: 0 }
+    const unknown = await runOnce(fakeProvider(estoqueChart, { calls }), { prompt: 'x', attachments: [{ name: 'dados.json', bytes: enc('{}') }] })
+    expect(unknown).toMatchObject({ state: 'FALHOU', errorCode: 'E_INGEST_INVALIDO' })
+    const noTable = await runOnce(fakeProvider(estoqueChart, { calls }), { prompt: 'x', attachments: [{ name: 'texto.md', bytes: enc('# Só texto\n\nSem tabela.\n') }] })
+    expect(noTable).toMatchObject({ state: 'FALHOU', errorCode: 'E_INGEST_INVALIDO' })
+    expect(noTable.message).toContain('não têm dados tabulares')
+    expect(calls.count).toBe(0)
+  })
+
+  it('tabela de um Markdown anexado serve de dataset', async () => {
+    const chart = { id: 'metas', tipo: 'bar' as const, datasetId: 'notas-tabela-1', x: { campo: 'Trimestre', titulo: 'Trimestre' }, y: { campo: 'Meta', titulo: 'Meta', agregacao: 'sum' as const }, titulo: 'Meta por trimestre' }
+    const event = await runOnce(fakeProvider(chart), { prompt: 'x', attachments: [fixtureAttachment('notas.md')] })
+    expect(event.state).toBe('ENTREGUE')
+  })
+
+  it('dois anexos de mesmo nome recebem ids distintos', async () => {
+    const calls: Calls = { count: 0 }
+    await runOnce(fakeProvider(estoqueChart, { calls }), { prompt: 'x', attachments: [{ name: 'a/estoque.csv', bytes: estoque.bytes }, { name: 'b/estoque.csv', bytes: estoque.bytes }] })
+    const prompt = calls.messages![0].content
+    expect(prompt).toContain('dataset id="estoque"')
+    expect(prompt).toContain('dataset id="estoque-2"')
+  })
+
+  it('localOnly com provedor remoto é recusado antes de ingerir qualquer anexo', async () => {
+    const calls: Calls = { count: 0 }
+    const event = await runOnce(fakeProvider(estoqueChart, { remote: true, calls }), { prompt: 'x', attachments: [{ name: 'vazio.csv', bytes: new Uint8Array(0) }] })
+    expect(event.errorCode).toBe('E_LOCAL_ONLY')
+    expect(calls.count).toBe(0)
+  })
+})
+
+describe('RF-05: gráfico com anexo e render real', () => {
+  const cases: [string, Record<string, unknown>][] = [
+    ['vendas.csv', { id: 'vendas-produto', tipo: 'bar', datasetId: 'vendas', x: { campo: 'produto', titulo: 'Produto' }, y: { campo: 'valor', titulo: 'Valor', agregacao: 'sum' }, titulo: 'Valor por produto' }],
+    ['vendas-br.csv', { id: 'vendas-regiao', tipo: 'bar', datasetId: 'vendas-br', x: { campo: 'regiao', titulo: 'Região' }, y: { campo: 'valor', titulo: 'Valor', agregacao: 'sum' }, titulo: 'Valor por região' }]
+  ]
+  for (const [file, chart] of cases) {
+    it(`${file}: gera, valida e renderiza um PNG de verdade`, async () => {
+      const store = new RunStore()
+      const terminal = waitForTerminal(store)
+      new Orchestrator(store, fakeProvider(chart), defaultChartRender).start({ prompt: 'gráfico', attachments: [fixtureAttachment(file)] })
+      const event = await terminal
+      expect(event.state).toBe('ENTREGUE')
+      const artifact = store.getArtifact(event.runId)!
+      expect([...artifact.png.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47])
+      expect(artifact.png.length).toBeGreaterThan(1000)
+      expect(new TextDecoder().decode(artifact.svg)).toContain('Valor')
+    })
+  }
 })

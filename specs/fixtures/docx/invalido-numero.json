@@ -1,0 +1,12 @@
+{
+  "specVersion": "1.0",
+  "kind": "docx",
+  "title": "Parágrafo com número inventado",
+  "lang": "pt-BR",
+  "preset": "abnt",
+  "charts": [],
+  "blocos": [
+    { "tipo": "tabela", "datasetId": "vendas", "legenda": "Vendas por categoria e região" },
+    { "tipo": "paragrafo", "texto": "As vendas cresceram 87% no período." }
+  ]
+}

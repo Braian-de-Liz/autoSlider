@@ -16,7 +16,7 @@ function subcodeOf(fn: () => unknown): unknown {
   return undefined
 }
 
-describe('Seção 6.4: validateChartSemantics', () => {
+describe('RF-03/RNF-04: validateChartSemantics (seção 6.4)', () => {
   it('aceita spec coerente e devolve o dataset', () => {
     expect(validateChartSemantics(base, catalog).id).toBe('vendas')
   })

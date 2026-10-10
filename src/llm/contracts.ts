@@ -18,6 +18,8 @@ export interface SourceUnit {
   index: number
   kind: 'document' | 'page' | 'slide' | 'sheet'
   text: string
+  /** Rótulo legível da unidade (ex.: título da seção), para citar a origem. */
+  title?: string
 }
 
 export interface SourceDoc {
@@ -57,6 +59,8 @@ export type ErrorCode =
   | 'E_LOCAL_ONLY'
   | 'E_RENDER'
   | 'E_CONFIG_INVALIDA'
+  | 'E_INGEST_INVALIDO'
+  | 'E_INGEST_LIMITE'
 
 export class LLMError extends Error {
   readonly code: ErrorCode

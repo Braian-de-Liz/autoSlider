@@ -3,12 +3,14 @@ import type { Dataset, DatasetColumn } from '../llm/contracts.ts'
 /** Dataset com as linhas completas. As linhas ficam na máquina; o prompt recebe só esquema e amostra (RF-11). */
 export interface TabularDataset extends Dataset {
   rows: Record<string, unknown>[]
+  /** Arquivo de origem (seção 6.5): caminho informado e SHA-256 dos bytes lidos. */
+  origin?: { path: string; sha256: string }
 }
 
 export const MAX_SAMPLE_ROWS = 5
 
-export function makeDataset(id: string, name: string, columns: DatasetColumn[], rows: Record<string, unknown>[]): TabularDataset {
-  return { id, name, columns, rows, sample: rows.slice(0, MAX_SAMPLE_ROWS) }
+export function makeDataset(id: string, name: string, columns: DatasetColumn[], rows: Record<string, unknown>[], origin?: TabularDataset['origin']): TabularDataset {
+  return { id, name, columns, rows, sample: rows.slice(0, MAX_SAMPLE_ROWS), ...(origin ? { origin } : {}) }
 }
 
 export class DatasetCatalog {

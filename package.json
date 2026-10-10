@@ -4,6 +4,11 @@
   "type": "module",
   "scripts": {
     "test": "bun test",
+    "test:deno": "deno task test",
+    "test:all": "bun test && deno task test",
+    "trace": "bun run scripts/trace.ts",
+    "fixtures": "bun run scripts/make-fixtures.ts",
+    "check": "bun run typecheck && bun run test:all && bun run trace",
     "typecheck": "tsc --noEmit",
     "probe": "bun run src/cli.ts probe --schema chart",
     "desktop": "deno run --allow-all src/desktop/webview-main.ts",

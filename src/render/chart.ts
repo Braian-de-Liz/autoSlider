@@ -5,7 +5,7 @@ import type { Static } from '@sinclair/typebox'
 import type { ChartSpec } from '../specs/schemas.ts'
 import type { Dataset } from '../llm/contracts.ts'
 
-export const CHART_RENDERER_VERSION = 'chart-vega-resvg@1.0.0'
+export const CHART_RENDERER_VERSION = 'chart-vega-resvg@1.0.1'
 type Chart = Static<typeof ChartSpec>
 
 type WriteFile = (path: string, data: Uint8Array | string) => Promise<void>
@@ -31,19 +31,25 @@ function markFor(type: Chart['tipo']): Record<string, unknown> {
   return { type: 'point', filled: true, size: 80 }
 }
 
+/**
+ * Nomes de coluna de CSV real têm `.`, `[`, `\` e outros caracteres que o Vega-Lite lê como caminho
+ * aninhado ou escape (uma coluna `a\b` chegou a renderizar um gráfico vazio, sem erro). Por isso os
+ * dados vão ao Vega-Lite com apelidos fixos (`x`, `y`, `s`) e todo texto visível vem da spec.
+ */
 function toVegaLite(spec: Chart, dataset: ChartRenderContext['dataset']): Record<string, unknown> {
   const aggregate = spec.y.agregacao === 'count' ? 'count' : spec.y.agregacao
+  const values = dataset.rows.map((row) => ({ x: row[spec.x.campo], y: row[spec.y.campo], ...(spec.serie ? { s: row[spec.serie] } : {}) }))
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v6.json',
     width: 720,
     height: 420,
     title: spec.titulo,
-    data: { values: dataset.rows },
+    data: { values },
     mark: markFor(spec.tipo),
     encoding: {
-      x: { field: spec.x.campo, type: 'nominal', title: spec.x.titulo, sort: null },
-      y: { field: aggregate === 'count' ? undefined : spec.y.campo, aggregate: aggregate === 'count' ? 'count' : aggregate, type: 'quantitative', title: spec.y.titulo },
-      ...(spec.serie ? { color: { field: spec.serie, type: 'nominal' } } : {})
+      x: { field: 'x', type: 'nominal', title: spec.x.titulo, sort: null },
+      y: { field: aggregate === 'count' ? undefined : 'y', aggregate: aggregate === 'count' ? 'count' : aggregate, type: 'quantitative', title: spec.y.titulo },
+      ...(spec.serie ? { color: { field: 's', type: 'nominal', title: spec.serie } } : {})
     },
     config: { background: '#0b1120', axis: { labelColor: '#dbeafe', titleColor: '#93c5fd', gridColor: '#26344e' }, title: { color: '#f8fafc' }, view: { stroke: '#334155' } }
   }
@@ -62,7 +68,9 @@ export async function renderChart(spec: Chart, context: ChartRenderContext): Pro
   const svgBytes = new TextEncoder().encode(svg)
   const pngBytes = new Resvg(svg).render().asPng()
   const hash = await sha256(pngBytes)
-  const base = `${context.outputDir}/${spec.id}-${hash.slice(0, 12)}`
+  // O id vem do modelo: vira só letras, números, `_` e `-`, nunca separador de caminho.
+  const safeId = spec.id.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'grafico'
+  const base = `${context.outputDir}/${safeId}-${hash.slice(0, 12)}`
   const svgPath = `${base}.svg`
   const pngPath = `${base}.png`
   await context.writeFile(svgPath, svgBytes)

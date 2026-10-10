@@ -1,0 +1,20 @@
+{
+  "specVersion": "1.0",
+  "kind": "docx",
+  "title": "Gráfico com coluna inexistente",
+  "lang": "pt-BR",
+  "preset": "abnt",
+  "charts": [
+    {
+      "id": "vendas-produto",
+      "tipo": "bar",
+      "datasetId": "vendas",
+      "x": { "campo": "produto", "titulo": "Produto" },
+      "y": { "campo": "valor", "titulo": "Valor", "agregacao": "sum" },
+      "titulo": "Vendas por produto"
+    }
+  ],
+  "blocos": [
+    { "tipo": "figura", "chartId": "vendas-produto", "legenda": "Vendas por produto" }
+  ]
+}

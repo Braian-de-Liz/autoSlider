@@ -37,7 +37,7 @@ async function errorOf(promise: Promise<unknown>): Promise<LLMError> {
   throw new Error('esperava LLMError')
 }
 
-describe('Vercel AI SDK bridge: Ollama', () => {
+describe('RF-08: Vercel AI SDK bridge: Ollama', () => {
   it('normaliza a base do Ollama para o sufixo /api', () => {
     expect(ollamaApiBaseUrl('http://127.0.0.1:11434')).toBe('http://127.0.0.1:11434/api')
     expect(ollamaApiBaseUrl('http://127.0.0.1:11434/')).toBe('http://127.0.0.1:11434/api')
@@ -101,7 +101,7 @@ describe('Vercel AI SDK bridge: Ollama', () => {
   })
 })
 
-describe('Vercel AI SDK bridge: OpenAI-compatible', () => {
+describe('RF-12: Vercel AI SDK bridge: OpenAI-compatible', () => {
   it('RF-12: OpenRouter recebe json_schema strict e require_parameters', async () => {
     const captured: Captured = {}
     const provider = new AISDKProvider(openRouterConfig, { fetch: fakeFetch(() => json(openAIReply(JSON.stringify(chart))), captured) })

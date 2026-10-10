@@ -3,7 +3,7 @@ import { Type } from '@sinclair/typebox'
 import { ChartSpec, Slide } from '../src/specs/schemas.ts'
 import { stripNullOptionals, toProviderSchema } from '../src/llm/schema.ts'
 
-describe('Seção 7, regra 3: schema strict da OpenAI', () => {
+describe('RF-12: schema strict da OpenAI (seção 7, regra 3)', () => {
   const strict = toProviderSchema(ChartSpec, 'openai-strict') as any
 
   it('exige todos os campos e proíbe propriedades extras', () => {
@@ -29,7 +29,7 @@ describe('Seção 7, regra 3: schema strict da OpenAI', () => {
   })
 })
 
-describe('stripNullOptionals', () => {
+describe('RF-12: stripNullOptionals', () => {
   it('remove null de campos opcionais, inclusive aninhados', () => {
     const value = { id: 'c', tipo: 'bar', datasetId: 'd', x: { campo: 'a', titulo: 'A' }, y: { campo: 'b', titulo: 'B', agregacao: null }, serie: null, titulo: 'T' }
     expect(stripNullOptionals(ChartSpec, value)).toEqual({ id: 'c', tipo: 'bar', datasetId: 'd', x: { campo: 'a', titulo: 'A' }, y: { campo: 'b', titulo: 'B' }, titulo: 'T' })
