@@ -1,6 +1,7 @@
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { buscarCommand } from './commands/buscar.ts'
 import { gerarCommand } from './commands/gerar.ts'
+import { renderCommand } from './commands/render.ts'
 import { ingerirCommand } from './commands/ingerir.ts'
 import { usageError, type CommandResult } from './commands/result.ts'
 import { validarCommand } from './commands/validar.ts'
@@ -17,7 +18,8 @@ const USAGE = [
   '  bun run src/cli.ts validar <arquivo.json>',
   '  bun run src/cli.ts ingerir <arquivo.csv|arquivo.md>',
   '  bun run src/cli.ts buscar "<consulta>" <arquivo...>',
-  '  bun run src/cli.ts gerar [--kind chart] [--anexo arquivo.csv]... [--out pasta] "pedido"'
+  '  bun run src/cli.ts gerar [--kind chart] [--anexo arquivo.csv]... [--out pasta] "pedido"',
+  '  bun run src/cli.ts render <spec.json> [--anexo arquivo.csv]... [--out pasta]'
 ].join('\n')
 
 function providerFromEnv() {
@@ -53,6 +55,7 @@ async function main() {
   if (command === 'ingerir') return emit(args[0] ? ingerirCommand(args[0]) : usageError('Uso: bun run src/cli.ts ingerir <arquivo.csv|arquivo.md>'))
   if (command === 'buscar') return emit(buscarCommand(args[0], args.slice(1)))
   if (command === 'gerar') return emit(await gerarCommand(args))
+  if (command === 'render') return emit(await renderCommand(args))
   console.error(USAGE)
   process.exitCode = 2
 }

@@ -53,6 +53,23 @@ describe('RF-05: renderer ChartSpec', () => {
     expect(new Set([...special.svg.matchAll(/aria-roledescription="bar"[^>]*fill="(#[0-9a-f]+)"/g)].map((match) => match[1])).size).toBe(2)
   })
 
+  it('os textos do gráfico são desenhados no PNG: títulos diferentes dão imagens diferentes', async () => {
+    // Sem fonte, o resvg-wasm desenharia o gráfico sem nenhum rótulo e sem erro (ADR-021).
+    const render = async (titulo: string, eixo: string) => await renderChart({ ...spec, titulo, x: { ...spec.x, titulo: eixo } }, { outputDir: 'artifacts', dataset, writeFile: async () => {} })
+    const base = await render('Vendas por categoria', 'Categoria')
+    expect((await render('Resultado por região', 'Categoria')).hash).not.toBe(base.hash)
+    expect((await render('Vendas por categoria', 'Produto')).hash).not.toBe(base.hash)
+  })
+
+  it('o SVG usa a fonte embutida e o PNG é decodificável', async () => {
+    let svg = ''
+    let png: Uint8Array = new Uint8Array()
+    const artifact = await renderChart(spec, { outputDir: 'artifacts', dataset, writeFile: async (path, data) => { if (path.endsWith('.svg')) svg = new TextDecoder().decode(data as Uint8Array); else png = data as Uint8Array } })
+    expect(svg).toContain('DejaVu Sans')
+    expect(new DataView(png.buffer, png.byteOffset).getUint32(16)).toBeGreaterThan(700)
+    expect(artifact.rendererVersion).toBe('chart-vega-resvg-wasm@2.0.0')
+  })
+
   it('o id da spec, que vem do modelo, não vira caminho no nome do arquivo', async () => {
     const artifact = await renderChart({ ...spec, id: '..\\..\\fora/evil' }, { outputDir: 'artifacts/run', dataset, writeFile: async () => {} })
     for (const path of [artifact.pngPath, artifact.svgPath]) {

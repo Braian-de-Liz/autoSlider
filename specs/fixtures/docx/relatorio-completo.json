@@ -1,0 +1,27 @@
+{
+  "specVersion": "1.0",
+  "kind": "docx",
+  "title": "Relatório de vendas por categoria",
+  "lang": "pt-BR",
+  "preset": "abnt",
+  "charts": [
+    {
+      "id": "vendas-categoria",
+      "tipo": "bar",
+      "datasetId": "vendas",
+      "x": { "campo": "categoria", "titulo": "Categoria" },
+      "y": { "campo": "valor", "titulo": "Valor", "agregacao": "sum" },
+      "titulo": "Vendas por categoria"
+    }
+  ],
+  "blocos": [
+    { "tipo": "heading", "nivel": 1, "texto": "Resumo" },
+    { "tipo": "texto_longo", "papel": "resumo", "status": "gerado", "texto": "O maior valor registrado foi 120, na categoria Eletrônicos.", "fontes": [{ "datasetId": "vendas" }] },
+    { "tipo": "heading", "nivel": 1, "texto": "Dados" },
+    { "tipo": "paragrafo", "texto": "A tabela a seguir reúne os valores por categoria e região, e o gráfico mostra a soma por categoria." },
+    { "tipo": "tabela", "datasetId": "vendas", "legenda": "Vendas por categoria e região" },
+    { "tipo": "figura", "chartId": "vendas-categoria", "legenda": "Soma das vendas por categoria" },
+    { "tipo": "heading", "nivel": 1, "texto": "Conclusão" },
+    { "tipo": "texto_longo", "papel": "conclusao", "status": "gerado", "texto": "A categoria Eletrônicos teve a maior soma, com 120 na região Sul.", "fontes": [{ "datasetId": "vendas" }] }
+  ]
+}

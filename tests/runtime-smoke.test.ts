@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { Resvg } from '@resvg/resvg-js'
 
 const runtime = 'Deno' in globalThis ? 'deno' : 'Bun' in globalThis ? 'bun' : 'node'
 
 /**
- * Smoke do M0 (seção 5.1 e questão aberta 6): o driver SQLite e o addon resvg
- * precisam funcionar em Bun e Deno antes do Store (M5). Resultado registrado na ADR-015.
+ * Smoke do M0 (seção 5.1 e questão aberta 6): o driver SQLite e o conversor SVG→PNG
+ * precisam funcionar em Bun e Deno antes do Store (M5). Resultados nas ADR-015 e ADR-021
+ * (o addon nativo resvg-js foi trocado pelo resvg-wasm).
  */
 describe(`RNF-10: smoke de runtime (${runtime})`, () => {
   it('node:sqlite abre banco em memória, cria tabela, grava em transação e lê', async () => {
@@ -43,9 +43,10 @@ describe(`RNF-10: smoke de runtime (${runtime})`, () => {
     }
   })
 
-  it('@resvg/resvg-js carrega o addon nativo e converte SVG em PNG', () => {
+  it('@resvg/resvg-wasm inicia sem addon nativo e converte SVG em PNG', async () => {
+    const { svgToPng } = await import('../src/render/png.ts')
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="#0b1120"/></svg>'
-    const png = new Resvg(svg).render().asPng()
+    const png = await svgToPng(svg)
     expect([...png.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
   })
 })

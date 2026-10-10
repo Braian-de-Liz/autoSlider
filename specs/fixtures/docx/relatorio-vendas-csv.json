@@ -1,0 +1,23 @@
+{
+  "specVersion": "1.0",
+  "kind": "docx",
+  "title": "Vendas por produto",
+  "lang": "pt-BR",
+  "preset": "abnt",
+  "charts": [
+    {
+      "id": "valor-produto",
+      "tipo": "bar",
+      "datasetId": "vendas",
+      "x": { "campo": "produto", "titulo": "Produto" },
+      "y": { "campo": "valor", "titulo": "Valor", "agregacao": "sum" },
+      "titulo": "Soma do valor por produto"
+    }
+  ],
+  "blocos": [
+    { "tipo": "heading", "nivel": 1, "texto": "Visão geral" },
+    { "tipo": "paragrafo", "texto": "Os registros de venda do período aparecem na tabela, e o gráfico resume o valor por produto." },
+    { "tipo": "figura", "chartId": "valor-produto", "legenda": "Soma do valor por produto" },
+    { "tipo": "tabela", "datasetId": "vendas", "legenda": "Registros de venda" }
+  ]
+}

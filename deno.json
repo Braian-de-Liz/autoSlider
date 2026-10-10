@@ -4,7 +4,7 @@
   "exports": "./src/desktop/main.ts",
   "tasks": {
     "desktop:dev": "deno desktop --hmr src/desktop/main.ts",
-    "desktop:build": "deno desktop --backend webview --output ./dist/autoSlider src/desktop/main.ts",
+    "desktop:build": "deno desktop --backend webview --allow-net --allow-env --allow-sys --allow-read --allow-write --allow-ffi --include assets/fonts --output ./dist/autoSlider src/desktop/main.ts",
     "desktop:server": "deno run --allow-net --allow-env src/desktop/main.ts",
     "desktop:webview": "deno run --allow-all src/desktop/webview-main.ts",
     "test": "deno test --allow-read --allow-env --allow-net --allow-ffi --allow-sys --allow-write tests/"
@@ -20,8 +20,9 @@
     "ollama-ai-provider-v2": "npm:ollama-ai-provider-v2@4.0.1",
     "@sinclair/typebox": "npm:@sinclair/typebox@0.34.41",
     "@sinclair/typebox/compiler": "npm:@sinclair/typebox@0.34.41/compiler",
-    "@resvg/resvg-js": "npm:@resvg/resvg-js@2.6.2",
+    "@resvg/resvg-wasm": "npm:@resvg/resvg-wasm@2.6.2",
     "vega": "npm:vega@6.4.0",
+    "docx": "npm:docx@9.9.0",
     "vega-lite": "npm:vega-lite@6.5.0",
     "@webview/webview": "jsr:@webview/webview@0.9.0"
   },

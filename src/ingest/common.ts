@@ -27,10 +27,15 @@ export function extensionOf(name: string): string {
   return dot > 0 ? file.slice(dot + 1).toLowerCase() : ''
 }
 
-/** Identificador estável e legível: minúsculas, sem acento, só `a-z0-9` e hífen. */
-export function slugify(name: string): string {
-  const slug = stem(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '')
+/** Slug de texto livre (ex.: título): minúsculas, sem acento, só `a-z0-9` e hífen, até 40 caracteres. */
+export function slugText(text: string): string {
+  const slug = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '')
   return slug || 'dados'
+}
+
+/** Identificador estável e legível de um arquivo: nome-base sem diretório nem extensão, em slug. */
+export function slugify(name: string): string {
+  return slugText(stem(name))
 }
 
 /** Devolve `base`, `base-2`, `base-3`... e registra o escolhido em `taken`. */

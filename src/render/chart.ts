@@ -1,11 +1,12 @@
 import { compile } from 'vega-lite'
 import * as vega from 'vega'
-import { Resvg } from '@resvg/resvg-js'
 import type { Static } from '@sinclair/typebox'
 import type { ChartSpec } from '../specs/schemas.ts'
 import type { Dataset } from '../llm/contracts.ts'
+import { FONT_FAMILY, svgToPng } from './png.ts'
 
-export const CHART_RENDERER_VERSION = 'chart-vega-resvg@1.0.1'
+/** 2.0.0: PNG pelo resvg-wasm com a fonte DejaVu Sans embutida (ADR-021); os pixels mudam em relação à 1.x. */
+export const CHART_RENDERER_VERSION = 'chart-vega-resvg-wasm@2.0.0'
 type Chart = Static<typeof ChartSpec>
 
 type WriteFile = (path: string, data: Uint8Array | string) => Promise<void>
@@ -51,7 +52,7 @@ function toVegaLite(spec: Chart, dataset: ChartRenderContext['dataset']): Record
       y: { field: aggregate === 'count' ? undefined : 'y', aggregate: aggregate === 'count' ? 'count' : aggregate, type: 'quantitative', title: spec.y.titulo },
       ...(spec.serie ? { color: { field: 's', type: 'nominal', title: spec.serie } } : {})
     },
-    config: { background: '#0b1120', axis: { labelColor: '#dbeafe', titleColor: '#93c5fd', gridColor: '#26344e' }, title: { color: '#f8fafc' }, view: { stroke: '#334155' } }
+    config: { font: FONT_FAMILY, background: '#0b1120', axis: { labelColor: '#dbeafe', titleColor: '#93c5fd', gridColor: '#26344e' }, title: { color: '#f8fafc' }, view: { stroke: '#334155' } }
   }
 }
 
@@ -66,7 +67,7 @@ export async function renderChart(spec: Chart, context: ChartRenderContext): Pro
   const view = new vega.View(runtime, { renderer: 'none' })
   const svg = await view.toSVG()
   const svgBytes = new TextEncoder().encode(svg)
-  const pngBytes = new Resvg(svg).render().asPng()
+  const pngBytes = await svgToPng(svg)
   const hash = await sha256(pngBytes)
   // O id vem do modelo: vira só letras, números, `_` e `-`, nunca separador de caminho.
   const safeId = spec.id.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'grafico'
