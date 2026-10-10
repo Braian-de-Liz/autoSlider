@@ -2,6 +2,86 @@
 
 Mudanças de spec e de comportamento, por versão da especificação (`specs/SPEC.md`).
 
+## v0.8.0 — 10/10/2026 (escopo: qualquer .pptx e Canva; planejamento)
+
+Mudança de **escopo**, sem código novo. O objetivo declarado passou a ser um assistente de escritório que trabalhe com qualquer apresentação `.pptx` e gere apresentações no Canva pelo MCP. O trabalho restante está em [`specs/BACKLOG.md`](specs/BACKLOG.md).
+
+### Spec
+- Novos requisitos, todos `planejado`: RF-21 (editar `.pptx` existente por operações tipadas, preservando o que não é tocado), RF-22 (criar `.pptx`, opcionalmente sobre os layouts do deck do usuário), RF-23 (ler design do Canva), RF-24 (editar design do Canva por transação com confirmação), RF-25 (exportar design do Canva), RNF-12 (ida e volta do pptx preserva todas as partes) e RNF-13 (cobertura do corpus de decks).
+- Roadmap: **M9** (apresentações pptx: núcleo OOXML, leitura, edição e criação) e **M10** (Canva avançado). A ingestão de PPTX saiu do M7 para o M9.
+- Seção 10.1 (Canva) atualizada com as ferramentas reais do servidor MCP lidas na documentação oficial em 10/10/2026: `create-design` com `outline` (assíncrono), `generate-design` com candidatos, edição por transação, leitura, exportação, limites de taxa e o que exige plano Pro. **Restrição encontrada:** `import-design-from-url` só aceita URL HTTPS pública, o que conflita com o local-first.
+- Questões abertas 11 a 17: biblioteca do pacote pptx, criação de pptx do zero, corpus de aceite, formatos fora do escopo, Canva e arquivo local, plano do Canva e verificação visual.
+
+### Documentação
+- `specs/BACKLOG.md` novo: estado verificado, dívidas de verificação, trilhas A a F, ordem proposta, o que a pesquisa do Canva mostrou, riscos, decisões em aberto e blocos de commit sugeridos.
+
+### Não verificado
+- O app desktop **completo** compilado com o `resvg-wasm` ainda não foi aberto (a prova foi com um app mínimo).
+- O visual do `.docx` no Word.
+- Nenhuma ferramenta do MCP do Canva foi chamada: tudo o que está na seção 10.1 vem da documentação, não de uma conexão real.
+
+## v0.7.1 — 09/10/2026 (resvg-wasm no lugar do resvg-js)
+
+Motivo: o app compilado com `deno desktop` (`desktop:deno`) caía ao iniciar, com `Must load N-API bindings`, por causa do `@resvg/resvg-js` (addon nativo). Decisão e evidências na [ADR-021](specs/adr/ADR-021-resvg-wasm-com-fonte-embutida.md).
+
+### Spec
+- Seção 10: o renderer de gráfico converte SVG em PNG com `@resvg/resvg-wasm` 2.6.2 (versão exata) e a fonte DejaVu Sans embutida, com as regras do novo `svgToPng`. Seção 5.1, M0, RNF-10, árvore do repositório e seção 14 atualizadas; cabeçalho v0.7.1.
+- ADR-021 nova; nota de atualização na ADR-015.
+- O gatilho de revisão do roadmap antigo ("se `resvg-js` não carregar, validar `resvg-wasm`") foi acionado; o contrato de `renderChart` não mudou.
+
+### Código e testes
+- `src/render/png.ts` (novo): `svgToPng` com wasm iniciado uma vez, fonte embutida e `verifyFont`, que recusa (`E_RENDER`) uma fonte que não desenha texto. Isso importa porque o `resvg-wasm` não lê fontes do sistema e, sem fonte, desenha o gráfico **sem rótulos e sem erro** (medido: o PNG fica idêntico ao do SVG sem texto).
+- `assets/fonts/DejaVuSans.ttf` (757 KB, sem modificação) e `assets/fonts/LICENSE-DejaVu.txt`; há um teste que garante que a licença acompanha a fonte.
+- `src/render/chart.ts`: usa `svgToPng` e define `config.font` no Vega-Lite. `chart-vega-resvg@1.0.1` → `chart-vega-resvg-wasm@2.0.0`: **os pixels dos gráficos mudam** (outra fonte).
+- `src/render/docx.ts`: `docx-abnt@1.1.0` → `1.2.0`, porque as figuras embutidas mudam.
+- `@resvg/resvg-js` removido de `package.json`, `bun.lock` e `deno.json`; entra `@resvg/resvg-wasm@2.6.2` (mesma versão e licença, MPL-2.0).
+- `tests/png.test.ts` (9 casos): texto desenhado, acentos, família genérica `sans-serif`, determinismo com hash de referência fixo, chamadas simultâneas, fonte válida, `verifyFont`, SVG inválido e licença. O smoke do M0 passa a testar o wasm; `tests/chart-render.test.ts` ganhou 2 casos (textos do gráfico são desenhados; SVG usa a fonte embutida).
+
+### Medições (Windows, Bun 1.4.2, Deno 2.9.5)
+- O mesmo SVG de teste dá o **mesmo PNG** (SHA-256 começando em `2321ca0b0cf9`) no Bun, no Deno e dentro do app compilado com `deno desktop`; sem fonte, `a476ff12bafb` (idêntico ao do SVG sem texto).
+- Um app compilado mínimo com wasm e fonte (`--include assets/fonts`) inicia o servidor e abre a janela; com o `resvg-js` o mesmo app caía.
+
+## v0.7.0 — 09/10/2026 (Fase B: renderer docx)
+
+### Documentação
+- `README.md` novo (estado atual, instalação, comandos, formato dos CSV, códigos de erro, limitações).
+- `DESKTOP.md` reescrito conforme o código: `bun run desktop` chama o Deno (janela WebView sobre um Worker, porta aleatória); o servidor pelo Bun é `desktop:bun`; removida a promessa de renderer "pendente" (já está conectado); documentados os anexos, as rotas e o aviso de segurança. Registrado o que não foi verificado (janela WebView, Deno Desktop).
+- Os quatro documentos da v0.4 foram movidos com `git mv` para `specs/archive/` (`SPEC-v0.4.md`, `ROADMAP-v0.4.md`, `PLANO-TDD-v0.4.md`, `DEPENDENCIAS-v0.4.md`), com um `README.md` explicando que foram superados.
+- ADR-017 a ADR-020 (parsers próprios e UTF-8 estrito; catálogo por run; apelidos de coluna no Vega-Lite; docx do zero) e índice em `specs/adr/README.md`.
+- Questão aberta nº 2 (preset docx) **resolvida**: só `abnt` e `livre`, gerados do zero, sem template institucional na v1.
+
+### Task 4 — renderer docx ABNT (RF-04)
+
+Spec: seção 10 (biblioteca `docx` 9.9.0 com versão exata, presets, blocos, `texto_longo` pendente = `E_RENDER`, determinismo e hash normalizado, comando `render`), seção 3.6 e cabeçalho v0.7.0. RF-04 continua `ativo` e passa a cobrir também o docx.
+
+Código e testes:
+- `src/render/theme.ts`: tokens dos presets `abnt` (Times New Roman 12, entrelinha 1,5, margens 3/3/2/2 cm, corpo justificado, recuo de 1,25 cm, número de página no canto superior direito) e `livre` (Calibri 11, entrelinha 1,15, margens de 2,5 cm).
+- `src/render/docx.ts`: título, títulos 1 a 3, parágrafos, listas (cada lista numerada recomeça em 1), quebra de página e `texto_longo` gerado. `texto_longo` pendente é `E_RENDER`.
+- **Determinismo medido:** duas gerações do mesmo documento com 1,5 s de intervalo diferem só em `docProps/core.xml` (datas) e nos timestamps do ZIP; com imagem, o `id` de `wp:docPr` também varia, por um contador global da biblioteca. O `hash` é o SHA-256 do conteúdo normalizado (entradas ordenadas, sem as datas do `core.xml`); o `id` da imagem é fixado por figura (Task 5).
+- `src/fs/zip.ts`: leitor de ZIP próprio (sem dependência), com limites de entradas (2.000) e de tamanho descompactado (200 MB) e proteção contra tamanho declarado falso; será reaproveitado na ingestão de XLSX (Task 8). `tests/support/read-zip.ts` o reexporta.
+- Comando `bun run src/cli.ts render <spec.json> [--anexo arquivo]... [--out pasta]` (`src/commands/render.ts`) e `typedFailure` em `src/commands/result.ts`.
+- `slugText` em `src/ingest/common.ts`: `slugify` tira diretório e extensão (serve a nomes de arquivo) e transformaria o título `Vendas 01/2024` em `2024`.
+- Fixture `specs/fixtures/docx/relatorio.json` (12 blocos, sem tabela nem figura); `minimo.json` segue sendo a fixture do validador.
+- `tests/docx-render.test.ts` (30 casos na Task 4): estrutura do ZIP, A4 e margens, fonte e entrelinha, corpo justificado, título, estilos de título, listas, quebra de página, cabeçalho com `PAGE`, caracteres especiais, preset `livre`, erros explícitos, nome de arquivo saneado, determinismo (com intervalo de 1,1 s) e o comando `render`. Roda no Bun e no Deno.
+
+### Task 5 — tabelas e figuras no docx (RF-04, RF-05)
+
+Spec: seção 10 (legenda acima e fonte abaixo, numeração por contador próprio, cabeçalho repetido, só linhas horizontais, formatação só de apresentação, texto alternativo, limitações), nota de cobertura de RF-04 e RF-05 e cabeçalho (Fase B concluída). O renderer sobe para `docx-abnt@1.1.0`.
+
+Código e testes:
+- `src/render/docx.ts`: `tabela` e `figura` deixam de ser erro. A tabela traz todas as linhas do dataset; a figura reaproveita `renderChart` e embute o PNG com a proporção preservada e a largura limitada à área útil. `formatNumber`, `formatCell` e `pngSize` exportados e testados.
+- Formatação de números própria (pt-BR, casas decimais preservadas), sem `Intl`, para o resultado não depender do ICU do runtime. Nada é calculado nem arredondado.
+- O `id` da imagem (`wp:docPr`) é fixado por figura: sem isso, o mesmo relatório gerado duas vezes no mesmo processo teria hashes diferentes.
+- Correção: `twipsToPixels` arredonda para baixo; a imagem saía 1 px mais larga que a área útil.
+- Fixtures `relatorio-completo.json` (texto, tabela e figura) e `relatorio-vendas-csv.json` (para o CSV de 100 linhas).
+- `tests/docx-render.test.ts` passa de 30 para 50 casos: o antigo "tabela e figura ainda não são suportadas" foi substituído pelos erros de dados ausentes; novos grupos de tabelas, formatação, figuras e do comando `render` com o CSV do usuário (100 linhas, valores e datas formatados, gráfico do CSV).
+
+### Pendente
+- Ninguém abriu o `.docx` no Word nem no LibreOffice: os testes conferem a estrutura do XML (estilos, bordas, larguras, legendas e imagem), não o visual. **Abrir `artifacts/<hash>/*.docx` e conferir fonte, margens, legendas, tabela e gráfico.**
+- Zeros finais de números de um CSV (`3013.80`) se perdem na ingestão e saem `3.013,8` na tabela.
+- As legendas não usam o campo `SEQ` do Word e não há lista de tabelas nem de figuras.
+- O docx ainda não é gerado pelo modelo (pipeline na Task 11): hoje a spec é escrita à mão.
+
 ## v0.6.0 — 09/10/2026 (Fase C: ingestão e gráfico com dados reais)
 
 ### Task 6 — contrato de ingestão e CSV (RF-18)

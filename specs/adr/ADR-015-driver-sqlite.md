@@ -17,7 +17,7 @@ A seção 5.1 exige que o núcleo não importe `bun:*` e rode em Bun e Deno. O S
 
 ## Decisão
 
-Usar `node:sqlite` (`DatabaseSync`) como implementação de `SqliteDriver`. Drizzle documenta suporte nativo a `node:sqlite`; a integração é verificada na Task 20 (M5). O renderer de gráfico mantém `@resvg/resvg-js`; o plano B `@resvg/resvg-wasm` não é necessário.
+Usar `node:sqlite` (`DatabaseSync`) como implementação de `SqliteDriver`. Drizzle documenta suporte nativo a `node:sqlite`; a integração é verificada na Task 20 (M5). O renderer de gráfico mantinha `@resvg/resvg-js`, e o plano B `@resvg/resvg-wasm` não parecia necessário. **Atualização (ADR-021):** o `resvg-js` não funcionou dentro do app compilado com `deno desktop` e foi trocado pelo `resvg-wasm`; a escolha do `node:sqlite` não muda.
 
 ## Consequências
 

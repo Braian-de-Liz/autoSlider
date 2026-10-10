@@ -1,6 +1,6 @@
 # autoSlider — Assistente de escritório para relatórios · Especificação Técnica
 
-Versão 0.6.0 · 09/10/2026 · Autor: Braian de Liz · Metodologia: spec-driven · Status: M0 fechado; Fase C concluída (ingestão de CSV e Markdown e gráfico com dados reais); Fase B (renderer docx) a seguir
+Versão 0.8.0 · 10/10/2026 · Autor: Braian de Liz · Metodologia: spec-driven · Status: M0 fechado; Fase C concluída (ingestão de CSV e Markdown e gráfico com dados reais); Fase B concluída (renderer docx com texto, tabelas e figuras)
 
 > Esta é a cópia versionada e autoritativa (seção 3.1). Mudanças desde a v0.4 estão no `CHANGELOG.md`.
 
@@ -75,6 +75,11 @@ Cada requisito tem um status na tabela abaixo. `planejado` e `adiado` podem não
 | RF-18 | ativo | M2 |
 | RF-19 | ativo | M8 |
 | RF-20 | adiado | — |
+| RF-21 | planejado | M9 |
+| RF-22 | planejado | M9 |
+| RF-23 | planejado | M10 |
+| RF-24 | planejado | M10 |
+| RF-25 | planejado | M10 |
 | RNF-01 | planejado | M4 |
 | RNF-02 | planejado | M4 |
 | RNF-03 | planejado | M1 |
@@ -86,8 +91,10 @@ Cada requisito tem um status na tabela abaixo. `planejado` e `adiado` podem não
 | RNF-09 | ativo | M8 |
 | RNF-10 | ativo | M0 |
 | RNF-11 | ativo | M0 |
+| RNF-12 | planejado | M9 |
+| RNF-13 | planejado | M9 |
 
-`ativo` significa que há teste de aceitação verde, não que o requisito esteja completo em todos os formatos: RF-03 e RNF-04 cobrem hoje ChartSpec e DocxSpec (validação, sem geração por LLM do docx); RF-04 e RF-05, só o renderer de gráfico (agora a partir de anexos reais, pelo comando `gerar` e pelo desktop); RF-01, `planejado` e coberto só em parte (anexos CSV/Markdown no pedido de gráfico); RF-09 e RF-11, o pipeline de gráfico e a ingestão de CSV e Markdown; RF-17, só Markdown (XLSX e PDF no M2, DOCX e PPTX no M7); RF-18, o CSV completo; RF-19, a casca do desktop com upload de anexos. Cada marco amplia os testes do requisito.
+`ativo` significa que há teste de aceitação verde, não que o requisito esteja completo em todos os formatos: RF-03 e RNF-04 cobrem hoje ChartSpec e DocxSpec (validação, sem geração por LLM do docx); RF-04 e RF-05, o renderer de gráfico (a partir de anexos reais, pelo comando `gerar` e pelo desktop) e o renderer de docx com texto, tabelas e gráficos embutidos (pelo comando `render`; ainda sem geração do documento pelo modelo); RF-01, `planejado` e coberto só em parte (anexos CSV/Markdown no pedido de gráfico); RF-09 e RF-11, o pipeline de gráfico e a ingestão de CSV e Markdown; RF-17, só Markdown (XLSX e PDF no M2, DOCX no M7, PPTX no M9); RF-18, o CSV completo; RF-19, a casca do desktop com upload de anexos. Cada marco amplia os testes do requisito.
 
 ### 3.4 Versionamento
 
@@ -117,11 +124,13 @@ src/
   agent/             # route.ts, generate.ts, validate.ts, validate-docx.ts, patch.ts
   commands/          # comandos da CLI (validar, ingerir, ...)
   ingest/            # Ingestores (csv.ts, ...), busca lexical e helpers comuns
-  fs/                # safe-path.ts: caminhos confinados ao projeto
-  render/            # pptx.ts, docx.ts, xlsx.ts, chart.ts, theme.ts
+  fs/                # safe-path.ts (caminhos confinados) e zip.ts (leitor de ZIP com limites)
+  render/            # docx.ts, theme.ts, chart.ts e png.ts prontos; pptx.ts e xlsx.ts a fazer
   calc/              # funções puras de cálculo e agregação
   store/             # Drizzle + SqliteDriver runtime-neutral
   cli.ts
+assets/
+  fonts/             # DejaVuSans.ttf e sua licença, usadas na conversão SVG→PNG (ADR-021)
 ```
 
 ## 4. Requisitos
@@ -150,6 +159,11 @@ src/
 | RF-18 | Ingerir CSV, respeitando limites de tamanho, segurança de arquivos compactados quando aplicável e amostra limitada no prompt |
 | RF-19 | Disponibilizar desktop leve com WebView do sistema, Hono/HTMX, SSE e processamento pesado em Workers, mantendo a CLI como interface de primeira classe |
 | RF-20 | (Adiado na v0.5, fora do roadmap atual.) Falar confirmações de evento e blocos `texto_longo` por `SpeechProvider`, usando templates determinísticos e sem reconhecimento de voz |
+| RF-21 | Editar um `.pptx` existente por operações tipadas e determinísticas (substituir texto, definir notas, remover, duplicar e mover slides, substituir imagem, preencher placeholder, adicionar slide a partir de um layout), preservando sem alteração tudo que a operação não toca; nunca sobrescrever o arquivo original |
+| RF-22 | Criar um `.pptx` a partir de uma `PptxSpec`, opcionalmente usando como base os layouts e o tema de um `.pptx` fornecido pelo usuário |
+| RF-23 | Ler um design do Canva (conteúdo das páginas, notas do apresentador) como `SourceDoc`, via MCP e somente com autenticação e confirmação do usuário |
+| RF-24 | Editar um design existente no Canva por transação (iniciar, operar, confirmar ou cancelar), mostrando o resultado em rascunho e exigindo confirmação antes do `commit` |
+| RF-25 | Exportar um design do Canva para arquivo (`.pptx` ou `.pdf`, conforme os formatos que o servidor MCP oferecer) e devolver o caminho local |
 
 ### 4.2 Não funcionais
 
@@ -164,8 +178,10 @@ src/
 | RNF-07 | Cada run registra provedor, modelo, parâmetros, seed (se suportado), versão da spec e dos renderers | 100% |
 | RNF-08 | Integrações externas (OpenRouter e Canva MCP) ficam atrás de interfaces e podem ser desativadas por configuração sem afetar o pipeline principal | Suíte de aceitação passa com ambas desativadas |
 | RNF-09 | O desktop não bloqueia o event loop durante ingestão/render e mantém a CLI funcional | SSE atualiza estados e smoke da CLI passa |
-| RNF-10 | Núcleo runtime-neutral: `src/` não importa `bun:*`; a suíte, o driver SQLite e o addon de render passam em Bun e Deno nas versões fixadas (ADR-013, ADR-015) | `bun test` e `deno task test` verdes |
+| RNF-10 | Núcleo runtime-neutral: `src/` não importa `bun:*`; a suíte, o driver SQLite e o conversor SVG→PNG (`resvg-wasm`, sem addon nativo) passam em Bun e Deno nas versões fixadas (ADR-013, ADR-015, ADR-021) | `bun test` e `deno task test` verdes |
 | RNF-11 | Rastreabilidade: todo bloco de teste cita requisito existente e todo requisito `ativo` tem teste (seção 3.3) | `bun run trace` sem lacunas |
+| RNF-12 | Ida e volta do pptx: abrir e salvar um `.pptx` sem edições preserva todas as partes do pacote (comparação por conteúdo normalizado) | 100% dos decks do corpus de aceite (mínimo de 10, de origens variadas) |
+| RNF-13 | Cobertura do corpus: todo deck do corpus abre sem erro e tem texto, notas e tabelas extraídos; o que não é suportado falha com erro tipado e mensagem acionável | 100% dos decks do corpus |
 
 As metas de RNF-01 e RNF-02 são hipóteses a validar no M4; podem ser revistas por mudança de spec com base nos dados medidos. O eval set compara Qwen3 8B com raciocínio desligado e Qwen2.5 7B; Qwen3 8B é o padrão provisório do M0.
 
@@ -193,7 +209,7 @@ Orchestrator ──► Router ──► SpecGenerator ──► Validator ──
 
 O núcleo não importa módulos `bun:*` e é executável em Bun e Deno. A CLI em Bun permanece a interface de primeira classe. O desktop é uma casca fina baseada no Deno Desktop experimental, com WebView do sistema por padrão e CEF somente como plano B; Hono serve HTML e HTMX, e SSE publica os estados do run. Parsing, render e demais operações pesadas rodam em Workers para não bloquear o event loop.
 
-O desktop chama o mesmo Orchestrator da CLI e não contém regra de negócio. A versão do Deno é fixada. Compatibilidade de SQLite e addons nativos, especialmente `resvg-js`, deve passar pelo smoke test dos dois runtimes no M0 e ser revalidada antes do M8.
+O desktop chama o mesmo Orchestrator da CLI e não contém regra de negócio. A versão do Deno é fixada. Compatibilidade de SQLite e de conversão SVG→PNG deve passar pelo smoke test dos dois runtimes e ser revalidada antes do M8. O `resvg-js` (addon nativo) não funcionou dentro do app compilado com `deno desktop` e foi trocado pelo `resvg-wasm` com fonte embutida (ADR-021).
 
 
 `RECEBIDO → ROTEADO → SPEC_GERADA → VALIDADA → RENDERIZADA → ENTREGUE`
@@ -503,11 +519,31 @@ Contrato: `render(spec, ctx) → { path, hash, rendererVersion }`. Funções pur
 | Formato | Biblioteca | Observações |
 | --- | --- | --- |
 | pptx | `pptxgenjs` | Cinco layouts fixos; tema por tokens em `theme.ts` |
-| docx | `docx` | Preset `abnt`: fonte 12, espaçamento 1,5, margens 3 cm (superior e esquerda) e 2 cm (inferior e direita), legendas de tabela e figura numeradas |
+| docx | `docx` 9.9.0 (versão exata) | Gerado do zero (ADR-020), em A4. Preset `abnt`: Times New Roman 12, entrelinha 1,5, margens 3 cm (superior e esquerda) e 2 cm (inferior e direita), corpo justificado com recuo de 1,25 cm, título centralizado, número de página no canto superior direito, legendas de tabela e figura numeradas. Preset `livre`: Calibri 11, entrelinha 1,15, margens de 2,5 cm. Detalhes abaixo |
 | xlsx | `exceljs` | Tipos de coluna e formatos numéricos vindos da spec; sem fórmulas geradas pelo modelo |
-| chart | Vega-Lite compilado → SVG → PNG com `@resvg/resvg-js` | Sem navegador headless; plano B: `@resvg/resvg-wasm` caso o addon nativo falhe no Bun |
+| chart | Vega-Lite compilado → SVG → PNG com `@resvg/resvg-wasm` 2.6.2 (versão exata) e a fonte DejaVu Sans embutida | Sem navegador headless e sem addon nativo (ADR-021, que trocou o `resvg-js` por não funcionar no app compilado com `deno desktop`). Detalhes abaixo |
 
-O tema (fontes, cores, margens, tamanhos) é um único arquivo de tokens, compartilhado pelos renderers, para manter a identidade visual consistente entre formatos.
+O tema (fontes, cores, margens, tamanhos) é um único arquivo de tokens, compartilhado pelos renderers, para manter a identidade visual consistente entre formatos. Hoje é `src/render/theme.ts`, com os presets `abnt` e `livre`.
+
+**Conversão SVG→PNG (v0.7.1, ADR-021).** `svgToPng` (`src/render/png.ts`) usa o `resvg-wasm`, que não lê as fontes do sistema. Por isso:
+
+- A fonte é embutida: `assets/fonts/DejaVuSans.ttf`, com `assets/fonts/LICENSE-DejaVu.txt` ao lado (a licença exige manter o aviso; a fonte não é modificada). Todas as famílias padrão do resvg e o `config.font` do Vega-Lite apontam para ela.
+- O wasm é iniciado uma única vez. Antes do primeiro uso, `verifyFont` renderiza um texto e um quadro em branco e exige que difiram; sem isso o gráfico sairia **sem rótulos e sem erro**. Wasm que não inicia, fonte ilegível ou inválida, fonte que não desenha texto e SVG inválido são `E_RENDER` (P6).
+- A saída é a mesma em Bun, Deno e no app compilado com `deno desktop` e independe das fontes instaladas na máquina (P5); o teste `tests/png.test.ts` fixa o hash de referência.
+- Em app compilado, a fonte precisa ir junto do binário (`--include assets/fonts`).
+- Versões (RNF-07): `chart-vega-resvg-wasm@2.0.0` e, por embutir os gráficos, `docx-abnt@1.2.0`.
+
+**Renderer docx (v0.7.0).** `renderDocx(spec, { outputDir, datasets, writeFile })` devolve `{ path, hash, rendererVersion }` (`docx-abnt@1.1.0`). Só grava dentro de `outputDir`, uma vez, com nome `<título em slug>-<12 primeiros caracteres do hash>.docx`; o título nunca entra no caminho sem ser saneado.
+
+- Blocos: o título da spec abre o documento (estilo `Title`); `heading` 1 a 3 usam os estilos de título (no `abnt`, nível 1 em negrito e maiúsculas por formatação, nível 2 em negrito, nível 3 em itálico, o texto da spec não é alterado); `paragrafo` e `texto_longo` viram parágrafos de corpo, divididos nas linhas em branco (quebra de linha simples fica dentro do parágrafo); `lista` usa marcadores ou numeração, e cada lista numerada recomeça em 1; `quebra_pagina` insere uma quebra de página.
+- `texto_longo` com `status = pendente` é `E_RENDER`: o texto precisa estar gravado na spec antes do render (seção 6.8), e nada é substituído por um espaço em branco. Tipo de bloco desconhecido também é `E_RENDER`.
+- **Determinismo (P5).** O ZIP e `docProps/core.xml` carregam a data de criação, então os bytes do arquivo variam entre execuções. O `hash` é o SHA-256 do **conteúdo normalizado**: nome e bytes descomprimidos de cada entrada, em ordem alfabética, sem as datas do `core.xml`. Mesma spec e mesma versão do renderer dão o mesmo `hash` e o mesmo nome de arquivo. A biblioteca usa um contador global para o `id` das imagens; o renderer o fixa por figura.
+- Sem numeração automática de seções, porque o validador rejeita números no texto que não vêm dos dados (seção 6.4 e questão aberta 10).
+- Comando `render <spec.json> [--anexo arquivo]... [--out pasta]`: valida a spec (schema e semântica) contra o dataset de exemplo ou, com `--anexo`, só contra os datasets dos anexos, e grava em `--out` (padrão `artifacts/<hash12>`), confinado ao diretório de trabalho e conferido antes de renderizar.
+- **Tabela** (`tabela`: `datasetId` + `legenda`): legenda **acima**, `Tabela N – <legenda>` (N sequencial pela ordem no documento, texto simples e não campo SEQ, 10 pt), e a linha `Fonte: <nome do dataset>.` **abaixo**, sem o caminho local do arquivo de origem. O corpo traz **todas** as linhas do dataset: cabeçalho em negrito repetido em cada página, linhas que não se dividem entre páginas, só linhas horizontais (topo, abaixo do cabeçalho e fim, no estilo das tabelas ABNT/IBGE), números à direita e texto à esquerda, largura igual à do texto com colunas de larguras iguais. Dataset sem colunas ou sem linhas, ou não entregue ao renderer, é `E_RENDER`.
+- **Figura** (`figura`: `chartId` + `legenda`): legenda **acima**, `Figura N – <legenda>` (contador próprio), imagem centralizada e `Fonte:` abaixo. O gráfico é renderizado por `renderChart` e embutido como PNG, com a proporção preservada, a largura limitada à área útil da página e sem ampliar o original. O texto alternativo usa o título do gráfico e `Gráfico de <tipo> de <y> por <x>`, montado só com campos da spec. O `id` da imagem (`wp:docPr`) é fixado por figura (1, 2, ...), porque a biblioteca o numera com um contador global do processo. O mesmo `chartId` pode aparecer em mais de uma figura.
+- **Formatação só de apresentação (P3):** números em pt-BR com separador de milhar e vírgula decimal, preservando as casas decimais do valor (`1234.5` vira `1.234,5`; zeros finais de um CSV como `3013.80` já se perderam na ingestão, então saem `3.013,8`); datas `YYYY-MM-DD` viram `dd/mm/aaaa`; booleanos viram `sim` e `não`; `null` vira célula vazia. O código é próprio, sem `Intl`, para não depender da versão do ICU do runtime. Nada é calculado nem arredondado.
+- Limitações: as legendas são texto, sem campo `SEQ` do Word, e não há lista de tabelas nem de figuras; uma tabela com muitas colunas divide a largura igualmente, sem quebra horizontal.
 
 ### 10.1 Exportação opcional: Canva via MCP
 
@@ -517,7 +553,8 @@ O Canva oferece um servidor MCP remoto (`https://mcp.canva.com/mcp`) com login p
 - **Cliente:** SDK oficial de MCP para TypeScript, linha v2 estável (`@modelcontextprotocol/client`, `Client` + `StreamableHTTPClientTransport`, OAuth pelo `OAuthClientProvider` do SDK). A linha v1 (`@modelcontextprotocol/sdk`) não é usada. Se o transporte remoto não funcionar no Bun, alternativa documentada pelo Canva: processo `mcp-remote` via stdio.
 - **Descoberta de ferramentas:** as ferramentas são listadas em tempo de execução (`tools/list`); a spec não depende de nomes fixos. Um mapeamento em `export/canva.ts` associa cada capacidade necessária (criar design, enviar conteúdo, exportar) à ferramenta encontrada. Capacidade ausente gera `E_EXPORT` com a lista das ferramentas disponíveis.
 - **Modo `design_from_spec`:** converte a spec em um pedido estruturado (título e texto de cada slide, dados referenciados) para as ferramentas de geração de design do Canva. O resultado é um design editável no Canva, mas o layout passa a ser decidido pelo Canva, não pelo renderer local.
-- **Modo `importar_arquivo`:** envia o arquivo já renderizado. A viabilidade depende das ferramentas que o servidor expõe e deve ser validada no início do M7.
+- **Ferramentas do servidor (documentação de 10/10/2026, a confirmar com `tools/list`):** `create-design` recebe `brief`, `format` e, para apresentações, um `outline` com `sections`; é assíncrona (devolve `job_id` e `continuation_token`; esperar ao menos 15 s antes de consultar `get-create-design-async-job`). `generate-design` produz candidatos que a documentação manda **apresentar ao usuário** (`create-design-from-candidate` materializa o escolhido). `start-editing-transaction`, `perform-editing-operations`, `commit-editing-transaction` e `cancel-editing-transaction` editam um design em rascunho até o `commit`. `get-design`, `get-design-pages`, `get-design-content`, `get-presenter-notes` e `search-designs` leem. `get-export-formats` e `export-design` exportam (assíncrono, URLs de download). Limites: 20 req/min na geração e na importação; `autofill-design`, modelos de marca e `resize-design` só no plano Pro ou superior.
+- **Modo `importar_arquivo`:** envia o arquivo já renderizado. A viabilidade depende das ferramentas que o servidor expõe e deve ser validada no início do M7. **Restrição encontrada em 10/10/2026:** `import-design-from-url` aceita pptx, mas só por **URL HTTPS pública**, e a documentação diz que não serve para arquivos locais ou privados. Isso conflita com o local-first (P7): o caminho só entra com confirmação explícita do usuário (RF-14), e a alternativa é o procedimento manual (questão aberta 15).
 - **Fonte da verdade:** o design no Canva é uma cópia derivada (P1). Edições feitas no Canva não voltam para a spec; o run grava a URL do design e as ferramentas chamadas (RNF-07).
 - **Privacidade:** o texto e os dados dos slides saem da máquina. O envio é bloqueado em projeto localOnly e, nos demais, exige confirmação por execução mostrando o que será enviado (RF-14).
 - **Acesso (atualizado em 09/10/2026):** o caminho recomendado pelo Canva é criar um app no Developer Portal e ativar o Canva MCP; o app recebe client ID e client secret e gerencia os redirect URLs, sem lista de espera. Clientes CIMD sem secret passam por lista de espera; DCR está descontinuado em favor de CIMD. Cada usuário autentica individualmente com a própria conta Canva. O spike do M7 cria o app, autentica com redirect de loopback e grava o `tools/list` real. Se falhar, o fallback é abrir o pptx gerado e importá-lo manualmente no Canva.
@@ -560,15 +597,17 @@ O Canva oferece um servidor MCP remoto (`https://mcp.canva.com/mcp`) com login p
 
 | Marco | Escopo | Critério de saída |
 | --- | --- | --- |
-| M0 Fundação | Contratos LLM, adapters OllamaNative/OpenAICompat, transformação de JSON Schema, fixtures ChartSpec/Slide, contratos SourceDoc/dataset, CLI probe, smoke Bun/Deno para SQLite e resvg-js, `specs/` e matriz de rastreabilidade | RF-08, RF-12, RNF-10, RNF-11; concluído na v0.5 (ADR-015: `node:sqlite`) |
+| M0 Fundação | Contratos LLM, adapters OllamaNative/OpenAICompat, transformação de JSON Schema, fixtures ChartSpec/Slide, contratos SourceDoc/dataset, CLI probe, smoke Bun/Deno para SQLite e conversão SVG→PNG (inicialmente `resvg-js`, trocado por `resvg-wasm` na v0.7.1, ADR-021), `specs/` e matriz de rastreabilidade | RF-08, RF-12, RNF-10, RNF-11; concluído na v0.5 (ADR-015: `node:sqlite`) |
 | M1 Renderers (relatório primeiro) | Ordem: docx (preset ABNT, tabelas e figuras), chart (pronto), pptx, xlsx; `theme.ts`; specs manuais e datasets JSON congelados. O docx entra antes; pptx e xlsx podem ser entregues depois do M4 | RF-04, RF-05 (render), RNF-03, RNF-05; goldens estruturais independentes da ingestão |
 | M2 Ingestão inicial | Markdown, CSV, XLSX e PDF com texto; SourceDoc, datasets, seleção lexical, limites ZIP, Worker, timeout e erros explícitos | RF-01, RF-11, RF-17, RF-18; fixtures sintéticas válidas, inválidas, PDF sem texto e ZIP excedido |
 | M3 Gerador de gráfico | SpecGenerator e loop de validação para ChartSpec usando dados ingeridos | RF-03, RF-05, RF-11, RNF-04; demonstração ponta a ponta de arquivo tabular a PNG/SVG |
 | M4 Relatórios e apresentações | `KindRegistry`; geração de docx primeiro, depois pptx; Router; `calc/`; etapa LONG_TEXT; seleção fixa de provedor por etapa; eval set | RF-01, RF-02, RF-03, RF-15 (seleção por etapa), RF-16; medição de RNF-01/RNF-02 somente no primário |
 | M5 Versões e edição | Store, versionamento, patch, `allow_remote_fallback` persistido, fallback remoto por etapa e auditoria de runs | RF-06, RF-07, RF-10, RF-15 (fallback); invariante localOnly/fallback e máximo de 6 chamadas testados |
 | M6 Endurecimento | localOnly, adapter Anthropic, logs, segurança, cobertura e documentação | RF-09, RNF-06, RNF-07, RNF-08; suíte sem integrações remotas passa |
-| M7 Ingestão avançada e Canva | Ingestão DOCX/PPTX; spike de acesso Canva; exportador via cliente MCP v2, OAuth, descoberta de ferramentas e modos de exportação | RF-13, RF-14, RF-17; fallback manual documentado se OAuth ou capacidade falhar |
+| M7 Ingestão avançada e Canva | Ingestão DOCX; spike de acesso Canva; exportador via cliente MCP v2, OAuth, descoberta de ferramentas e modos de exportação. A ingestão de PPTX saiu para o M9; a evolução do Canva (leitura, edição, exportação) para o M10 | RF-13, RF-14, RF-17; fallback manual documentado se OAuth ou capacidade falhar |
 | M8 Desktop | Deno Desktop, WebView do sistema, Hono/HTMX, SSE e Workers sobre o pipeline completo; proteção de origem/CSRF no servidor local | RF-19, RNF-09; CLI permanece funcional |
+| M9 Apresentações pptx | Núcleo OOXML (leitura e escrita de ZIP, XML, modelo do pacote, verificador); ingestão de qualquer `.pptx`; edição por operações tipadas; criação a partir de `PptxSpec` e de layouts do deck do usuário; corpus de aceite | RF-17 (PPTX), RF-21, RF-22, RNF-12, RNF-13; dependências: M2 (contratos de ingestão) e, para edição por instrução em linguagem natural, M5 |
+| M10 Canva avançado | Leitura de designs, edição por transação com confirmação e exportação de designs do Canva, sobre o exportador do M7 | RF-23, RF-24, RF-25; depende do spike do M7 e do app no Developer Portal |
 
 A voz (RF-20, `SpeechProvider`, WebSpeech/Piper e comando `ler`) saiu do M8 na v0.5 e não tem marco.
 
@@ -596,13 +635,18 @@ O M1 é deliberadamente anterior a qualquer geração por LLM: prova que os rend
 | ADR-014 | Voz somente de saída, com templates determinísticos | Evita escopo de microfone/Whisper e impede números inventados | Reconhecimento de voz na v1 |
 | ADR-015 | SQLite via `node:sqlite` (detalhe em `specs/adr/ADR-015-driver-sqlite.md`) | Passou no smoke em Bun 1.4.2 e Deno 2.9.5 sem addon extra | `better-sqlite3` (addon nativo) |
 | ADR-016 | Roadmap "relatório primeiro" e voz adiada | O docx é o formato de maior uso; a voz não bloqueia nenhum fluxo de relatório | Manter a ordem da v0.4 |
+| ADR-017 | Parsers próprios de CSV e Markdown; UTF-8 estrito | Erros tipados, convenções pt-BR e nenhuma dependência nova; sem conversão silenciosa de codificação (P6) | Bibliotecas genéricas de CSV e Markdown |
+| ADR-018 | Catálogo por run: com anexos, só os datasets deles | Evita dado de demonstração num relatório real; erro de ingestão não chama o provedor | Misturar o dataset de exemplo com os anexos |
+| ADR-019 | Dados do Vega-Lite com apelidos de coluna (`x`, `y`, `s`) | Coluna `a\b` gerava gráfico vazio sem erro; textos visíveis vêm da spec | Escapar os nomes dos campos |
+| ADR-020 | Docx do zero, só com os presets `abnt` e `livre` | Sem template institucional disponível; menos superfície | Preencher um template (`patchDocument`) |
+| ADR-021 | PNG pelo `resvg-wasm` com a fonte DejaVu Sans embutida | O addon `resvg-js` derruba o app compilado com `deno desktop` (N-API); o wasm dá o mesmo PNG em Bun, Deno e no app compilado | Manter o `resvg-js`; usar fonte do sistema (não redistribuível e quebra P5) |
 
 A partir da ADR-015, cada decisão também tem um arquivo próprio em `specs/adr/`.
 
 ## 15. Questões em aberto
 
 1. **Tema visual do pptx:** definir tokens de cor e tipografia antes do M1.
-2. **Preset docx:** além de ABNT, existe modelo institucional a ser suportado como template em vez de geração do zero?
+2. **Preset docx:** resolvida na v0.7.0 (ADR-020): somente `abnt` e `livre`, gerados do zero; sem template institucional na v1.
 3. **Idiomas:** v1 fixa `pt-BR`; avaliar `en` apenas se surgir caso real.
 4. **Canva:** decidir no início do M7 entre `design_from_spec` e `importar_arquivo`, após `tools/list` e validação de OAuth.
 5. **Modelos de referência:** quais modelos locais e via OpenRouter entram no eval set, além de Qwen3 8B e Qwen2.5 7B?
@@ -611,6 +655,13 @@ A partir da ADR-015, cada decisão também tem um arquivo próprio em `specs/adr
 8. **PptxSpec:** definir o layout para `texto_longo` no M4; o bloco entra inicialmente apenas no DocxSpec.
 9. **Desktop:** versão do Deno fixada em 2.9.5. A validação de voz `pt-BR` no WebView fica com a voz (adiada).
 10. **Números incidentais em texto:** a regra de `E_NUMERO_SEM_ORIGEM` rejeita qualquer número fora dos datasets referenciados, inclusive anos ("2024"), numeração de seções e datas. Decidir após a ingestão (M2), por exemplo aceitando números presentes nas fontes de texto (`SourceDoc`) ou uma lista explícita de números permitidos na spec. Na v0.6.0 os números em prosa de um Markdown não contam como conhecidos (só as tabelas viram datasets); decidir na Task 11 se as unidades de texto passam a valer como origem.
+11. **Pacote pptx (M9):** como ler e gravar o OOXML: código próprio sobre `src/fs/zip.ts`, `jszip` com `fast-xml-parser`, ou `pptx-automizer`. Recomendação do backlog: bibliotecas pequenas para ZIP e XML e o modelo de pacote próprio; decidir por ADR depois do smoke em Bun e Deno.
+12. **Criação de pptx do zero (M9):** `pptxgenjs` (prevista na seção 10) ou o núcleo OOXML próprio.
+13. **Corpus de aceite (M9):** quais decks definem "qualquer .pptx" para o RNF-12 e o RNF-13; mínimo de 10, de origens variadas (PowerPoint, Google Slides, Canva, LibreOffice), com e sem notas, tabelas, gráficos, imagens e SmartArt.
+14. **Formatos fora do escopo:** `.ppt` binário, Keynote e `.pptm` (macro): mensagem pedindo para exportar como `.pptx`; confirmar.
+15. **Canva e arquivo local (M7/M10):** `import-design-from-url` exige URL HTTPS pública, o que conflita com o local-first (P7). Verificar no spike se `create-upload-url` aceita arquivo local; senão, decidir entre URL temporária confirmada pelo usuário ou procedimento manual.
+16. **Plano do Canva:** `autofill-design`, modelos de marca e `resize-design` exigem plano Pro ou superior; confirmar o plano antes de prometer esses recursos.
+17. **Verificação visual de pptx e docx:** sem PowerPoint ou LibreOffice no ambiente, só a estrutura é testável; decidir se o LibreOffice entra como ferramenta de conferência manual (fora do `check`).
 
 ## 16. Fontes
 
