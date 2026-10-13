@@ -11,6 +11,7 @@
     "check": "bun run typecheck && bun run test:all && bun run trace",
     "typecheck": "tsc --noEmit",
     "probe": "bun run src/cli.ts probe --schema chart",
+    "probe:deck": "bun run src/cli.ts probe --schema deck",
     "desktop": "deno run --allow-all src/desktop/webview-main.ts",
     "desktop:bun": "bun run src/desktop/main.ts",
     "desktop:deno": "deno desktop --backend webview --allow-net --allow-env --allow-sys --allow-read --allow-write --allow-ffi --include assets/fonts src/desktop/main.ts",

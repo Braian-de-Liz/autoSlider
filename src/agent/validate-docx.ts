@@ -3,7 +3,7 @@ import type { Static, TSchema } from '@sinclair/typebox'
 import { Bloco, DocxSpec } from '../specs/schemas.ts'
 import { LLMError } from '../llm/contracts.ts'
 import type { DatasetCatalog, TabularDataset } from '../data/catalog.ts'
-import { NUMBER_TOKEN, knownNumbers, semanticError, toNumber, validateChartSemantics } from './validate.ts'
+import { checkNumbers, knownNumbers, semanticError, validateChartSemantics } from './validate.ts'
 
 export type ValidDocxSpec = Static<typeof DocxSpec>
 
@@ -61,14 +61,6 @@ export function validateDocxSpec(value: unknown): ValidDocxSpec {
     }
   })
   return spec
-}
-
-function checkNumbers(text: string, path: string, known: Set<number>, origin: string): void {
-  for (const token of text.match(NUMBER_TOKEN) ?? []) {
-    if (!known.has(toNumber(token))) {
-      throw semanticError('E_NUMERO_SEM_ORIGEM', path, `O número "${token}" em ${path} não aparece ${origin}.`)
-    }
-  }
 }
 
 /**

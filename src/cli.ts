@@ -1,6 +1,7 @@
 import { TypeCompiler } from '@sinclair/typebox/compiler'
 import { buscarCommand } from './commands/buscar.ts'
 import { gerarCommand } from './commands/gerar.ts'
+import { probeDeckCommand } from './commands/probe-deck.ts'
 import { renderCommand } from './commands/render.ts'
 import { ingerirCommand } from './commands/ingerir.ts'
 import { usageError, type CommandResult } from './commands/result.ts'
@@ -15,6 +16,7 @@ const validator = TypeCompiler.Compile(ChartSpec)
 const USAGE = [
   'Uso:',
   '  bun run src/cli.ts probe --schema chart',
+  '  bun run src/cli.ts probe --schema deck [--out pasta] [--only D01,D02]',
   '  bun run src/cli.ts validar <arquivo.json>',
   '  bun run src/cli.ts ingerir <arquivo.csv|arquivo.md>',
   '  bun run src/cli.ts buscar "<consulta>" <arquivo...>',
@@ -51,6 +53,7 @@ async function probe(): Promise<void> {
 async function main() {
   const [command, ...args] = process.argv.slice(2)
   if (command === 'probe' && args[0] === '--schema' && args[1] === 'chart') return await probe()
+  if (command === 'probe' && args[0] === '--schema' && args[1] === 'deck') return emit(await probeDeckCommand(args.slice(2)))
   if (command === 'validar') return emit(args[0] ? validarCommand(args[0]) : usageError('Uso: bun run src/cli.ts validar <arquivo.json>'))
   if (command === 'ingerir') return emit(args[0] ? ingerirCommand(args[0]) : usageError('Uso: bun run src/cli.ts ingerir <arquivo.csv|arquivo.md>'))
   if (command === 'buscar') return emit(buscarCommand(args[0], args.slice(1)))

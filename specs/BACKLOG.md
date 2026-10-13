@@ -83,10 +83,10 @@ Hoje o LLM só gera `ChartSpec`. Para o assistente de verdade falta:
 Detalhes e riscos na seção 5. Resumo do que falta, em ordem:
 
 1. **D0. Você cria o app no Developer Portal** (client ID e secret). Só você pode fazer. Bloqueia todo o resto da trilha.
-2. **D1. Spike (T27):** conectar com `@modelcontextprotocol/client` v2 (OAuth, redirect em loopback), gravar o `tools/list` real e responder as perguntas da seção 5.3.
+2. **D1. Spike (T27):** conectar com `@modelcontextprotocol/client` v2 (OAuth, redirect em loopback) e responder as perguntas da seção 5.3. **Primeiro passo, antes de qualquer código que use nome de ferramenta:** gravar o `tools/list` do seu app como fixture versionada (`specs/fixtures/canva/tools-list.json`) e compará-lo com a tabela da seção 5.1. Em 12/10 um conector do Canva em outro ambiente expunha `read-design`, `edit-design`, `generate-design-structured` e `request-outline-review`, sem `start-editing-transaction`, `perform-editing-operations`, `commit-editing-transaction` nem `get-design-pages`, que a documentação lista. Pode ser outra superfície do mesmo servidor; só o `tools/list` do app via OAuth decide.
 3. **D2. Exportador `design_from_spec`** (T28, RF-13, RF-14): converter a `PptxSpec` em *brief* + *outline* e chamar `create-design`; consultar o job até concluir; guardar URL e ferramentas usadas (RNF-07). Bloqueado em projeto `localOnly`; confirmação mostrando o que será enviado.
 4. **D3. Ler designs do Canva** (RF-23): `search-designs`, `get-design-content`, `get-design-pages`, `get-presenter-notes` viram `SourceDoc`.
-5. **D4. Editar um design do Canva por transação** (RF-24): `start-editing-transaction`, `perform-editing-operations`, `commit` ou `cancel`, com pré-visualização e confirmação antes do `commit`.
+5. **D4. Editar um design do Canva por transação** (RF-24): `start-editing-transaction`, `perform-editing-operations`, `commit` ou `cancel`, com pré-visualização e confirmação antes do `commit`. **Bloqueada até o `tools/list` do D1 ser gravado e comparado.** Contingência: se a transação não existir no app, redesenhar em torno de `edit-design` (ou o equivalente que o `tools/list` mostrar), mantendo a confirmação antes de aplicar. O código mapeia por capacidade ("ler páginas", "editar texto", "confirmar"), não por nome fixo (R-6).
 6. **D5. Exportar do Canva** (RF-25): `get-export-formats` e `export-design`; verificar se `.pptx` é um formato disponível. Fecha o ciclo Canva → pptx → edição local.
 7. **D6 (opcional, plano Pro):** `autofill-design` e modelos de marca.
 
@@ -118,7 +118,7 @@ A ordem busca entregar valor cedo e reduzir o risco do que é incerto (OOXML e C
 | # | Fase | Por que nesta posição |
 |---|---|---|
 | 0 | **Fechar as dívidas da seção 2** e fazer os commits | Pouco trabalho; sem isso não se sabe em que base se está construindo |
-| 1 | **D0 (você) e D1 (spike do Canva)**, em paralelo com a Fase 2 | O spike pode derrubar premissas (importação, exportação em pptx, plano). Quanto antes, melhor |
+| 1 | **D0 (você) e D1 (spike do Canva)**, em paralelo com a Fase 2 | O spike pode derrubar premissas (importação, exportação em pptx, plano). Quanto antes, melhor. Em paralelo, o **`probe --schema deck`** (10 pedidos, com números e fontes) mede se o modelo local produz uma estrutura de apresentação coerente antes de investir nas Trilhas B e C |
 | 2 | **Trilha A** (núcleo OOXML e leitura de qualquer pptx) | Base de tudo em pptx; já entrega `ingerir` e `buscar` em decks |
 | 3 | **C1 e C2** (`generateObject`, `calc/`) | Curtos e destravam o resto da Trilha C |
 | 4 | **Trilha B** (editar e criar pptx), começando pelo spike de template (B3) | Entrega o "trabalhar com qualquer pptx" de forma determinística, sem depender do modelo |
@@ -148,6 +148,15 @@ Fonte: documentação oficial em `canva.dev/docs/apps/mcp/`, lida em 10/10/2026.
 | Marca e modelos | `autofill-design`, `search-brand-templates`, `create-design-from-brand-template`, `list-brand-kits` | **Plano Pro ou superior** |
 
 Limites de taxa relevantes: geração e importação 20 req/min; `generate-image` 10 req/min; leitura 100 req/min. Cada usuário autentica individualmente com a própria conta Canva.
+
+**Reconferido em 12/10/2026 na documentação oficial (`canva.dev/docs/apps/mcp/`):**
+
+- Os nomes da tabela acima existem na lista de ferramentas publicada, mais `help`, `resolve-shortlink`, `copy-design`, `separate-image-layers` e as de pastas e comentários.
+- Acesso: criar o app no Developer Portal e ativar o Canva MCP dá client ID e secret, sem lista de espera (D0). O caminho CIMD, sem secret, exige lista de espera.
+- `import-design-from-url`: a doc diz que não serve para arquivos locais, privados ou gerados por agente.
+- `create-upload-url`: serve para enviar bytes locais (`POST` cru, `application/octet-stream`; resposta com `mediaId`, `videoId` ou `fileId`). **Não está documentado que um pptx enviado assim vire um design editável.** É a pergunta 4 do spike e a mais importante: se não virar, o Canva fica só como destino de conteúdo gerado.
+- Exportação: a página "About Canva MCP" lista PPTX entre os formatos; falta confirmar no `get-export-formats` real. As URLs assinadas expiram e não devem ser guardadas.
+- Plano: Pro ou superior para redimensionar, autofill, marcas e modelos de marca (um site de terceiros diz Enterprise para autofill; vale a doc oficial, confirmar na conta).
 
 ### 5.2 O que isso muda no desenho
 
@@ -189,7 +198,7 @@ Limites de taxa relevantes: geração e importação 20 req/min; `generate-image
 |---|---|---|---|
 | D-1 | Como ler e gravar o pacote pptx | (a) código próprio sobre `src/fs/zip.ts` + parser XML novo; (b) `jszip` + `fast-xml-parser`; (c) `pptx-automizer` (edita/mescla pptx existentes, baseado em templates) | (b): bibliotecas pequenas e maduras para ZIP e XML, com o modelo de pacote e as operações escritos por nós. Avaliar o `pptx-automizer` só no spike B3. Registrar em ADR depois do smoke em Bun e Deno |
 | D-2 | Criar pptx do zero | (a) `pptxgenjs` (prevista na SPEC); (b) gerar pelo nosso núcleo OOXML | (a) para o M9 inicial; trocar só se esbarrar em limite |
-| D-3 | Importar pptx local no Canva | (a) URL pública temporária sua; (b) `create-upload-url` se o spike permitir; (c) só manual | Decidir depois do spike D1; (c) é o padrão seguro |
+| D-3 | Importar pptx local no Canva | (a) URL pública temporária sua; (b) `create-upload-url` se o spike permitir; (c) só manual | Testar (b) primeiro no D1 (a doc permite enviar bytes locais, mas não diz que um pptx vira design); (a) só com confirmação explícita; (c) é o padrão seguro |
 | D-4 | Canva na geração | (a) `create-design` direto; (b) `generate-design` com candidatos e escolha do usuário | (a) por padrão; (b) quando o usuário quiser variações |
 | D-5 | Corpus de decks para o aceite | Você fornece 8 a 10 decks reais (anonimizados) de origens variadas, ou eu gero decks sintéticos | Os dois: sintéticos para os testes automáticos e os seus reais para a validação manual |
 | D-6 | Verificação visual | Instalar o LibreOffice para converter em PDF/imagem, ou você abre os arquivos | Instalar o LibreOffice (uso só em conferência manual, fora do `check`) |

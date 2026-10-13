@@ -2,6 +2,23 @@
 
 Mudanças de spec e de comportamento, por versão da especificação (`specs/SPEC.md`).
 
+## Não lançado — 12/10/2026 (sonda de apresentação)
+
+Sem mudança de spec. Primeiro código da trilha de apresentações: uma **sonda** que mede se o modelo configurado produz uma `PptxSpec` válida, antes de investir nos renderers (Trilhas B e C do backlog).
+
+### Código
+- `PptxSpec` (seção 6.2) em `src/specs/schemas.ts`.
+- `src/agent/validate-pptx.ts`: sintaxe com o campo exato do slide, primeiro slide `titulo`, chaves de `notas` dentro do intervalo, `E_REF` (gráfico ou dataset inexistente, gráfico declarado e não usado, id duplicado), `E_CAMPO` (gráfico embutido) e `E_NUMERO_SEM_ORIGEM` (título, subtítulo, itens, colunas e notas).
+- `checkNumbers` saiu de `validate-docx.ts` para `validate.ts` e é compartilhado pelo docx e pelo pptx.
+- `probe --schema deck [--out pasta] [--only D01,D02]` (`bun run probe:deck`): 10 pedidos (sem dados, dataset de exemplo, `vendas.csv`, `notas.md`, e uma armadilha com um número inventado), até 2 retentativas como no Orchestrator, e a gravação de `probe-deck.json` e `probe-deck.md` em `artifacts/probe-deck/<data>`. Respeita `PROJECT_LOCAL_ONLY` (RF-09).
+
+### Documentação
+- `specs/BACKLOG.md`: o D1 grava o `tools/list` real antes de qualquer código usar nomes de ferramenta; o D4 ganhou contingência caso a transação de edição não exista no app; a seção 5 registra a reconferência da documentação do Canva em 12/10.
+
+### Não verificado
+- A sonda **não foi executada contra um modelo real**: o Ollama não estava rodando. Os testes usam um provedor falso.
+- A qualidade do texto gerado só se avalia lendo `probe-deck.md`.
+
 ## v0.8.0 — 10/10/2026 (escopo: qualquer .pptx e Canva; planejamento)
 
 Mudança de **escopo**, sem código novo. O objetivo declarado passou a ser um assistente de escritório que trabalhe com qualquer apresentação `.pptx` e gere apresentações no Canva pelo MCP. O trabalho restante está em [`specs/BACKLOG.md`](specs/BACKLOG.md).

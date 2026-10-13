@@ -22,6 +22,15 @@ export function semanticError(subcode: SemanticSubcode, path: string, message: s
 export const NUMBER_TOKEN = /\d+(?:[.,]\d+)?/g
 export const toNumber = (token: string) => Number(token.replace(',', '.'))
 
+/** Falha com E_NUMERO_SEM_ORIGEM no primeiro número de `text` que não está em `known` (RNF-04). */
+export function checkNumbers(text: string, path: string, known: Set<number>, origin: string): void {
+  for (const token of text.match(NUMBER_TOKEN) ?? []) {
+    if (!known.has(toNumber(token))) {
+      throw semanticError('E_NUMERO_SEM_ORIGEM', path, `O número "${token}" em ${path} não aparece ${origin}.`)
+    }
+  }
+}
+
 /** Números com origem rastreável: células numéricas, dígitos em células de texto e nomes de coluna. */
 export function knownNumbers(dataset: TabularDataset): Set<number> {
   const known = new Set<number>()

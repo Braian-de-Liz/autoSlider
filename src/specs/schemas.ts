@@ -71,6 +71,15 @@ export const DocxSpec = Type.Object({
   blocos: Type.Array(Bloco, { minItems: 1 })
 })
 
+export const PptxSpec = Type.Object({
+  ...Base,
+  kind: Type.Literal('pptx'),
+  charts: Type.Array(ChartSpec),
+  slides: Type.Array(Slide, { minItems: 1, maxItems: 30 }),
+  /** Notas do apresentador: chave = posição do slide (a partir de "1"), valor = texto. */
+  notas: Type.Optional(Type.Record(Type.String(), Type.String()))
+})
+
 export const chartProbeExample = {
   id: 'chart-probe',
   tipo: 'bar' as const,

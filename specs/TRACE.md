@@ -25,14 +25,14 @@ Gerado por `bun run trace` a partir de `specs/SPEC.md` e `tests/`. Não edite à
 | RF-19 | ativo | M8 | tests/desktop-runtime.test.ts › RF-19: runtime Deno Desktop<br>tests/desktop.test.ts › RF-19: desktop local Hono/HTMX/SSE<br>tests/desktop.test.ts › RF-19: upload de anexos no desktop<br>tests/orchestrator.test.ts › RF-19: interface reflete o projeto real | src/agent/orchestrator.ts<br>src/data/catalog.ts<br>src/desktop/app.ts<br>src/desktop/run-store.ts<br>src/desktop/runtime.ts<br>src/ingest/common.ts<br>src/llm/contracts.ts |
 | RF-20 | adiado | — | — | — |
 | RF-21 | planejado | M9 | — | — |
-| RF-22 | planejado | M9 | — | — |
+| RF-22 | planejado | M9 | tests/pptx-spec.test.ts › RF-22: PptxSpec (seção 6.2)<br>tests/probe-deck.test.ts › RF-22: sonda de apresentação (runDeckProbe)<br>tests/probe-deck.test.ts › RF-22: comando probe --schema deck | src/agent/probe-deck.ts<br>src/agent/validate-pptx.ts<br>src/commands/probe-deck.ts<br>src/data/catalog.ts<br>src/llm/contracts.ts |
 | RF-23 | planejado | M10 | — | — |
 | RF-24 | planejado | M10 | — | — |
 | RF-25 | planejado | M10 | — | — |
 | RNF-01 | planejado | M4 | — | — |
 | RNF-02 | planejado | M4 | — | — |
 | RNF-03 | planejado | M1 | — | — |
-| RNF-04 | ativo | M3 | tests/docx-spec.test.ts › RNF-04: origem dos números em docx<br>tests/orchestrator.test.ts › RF-03/RNF-04: validação semântica (seção 6.4)<br>tests/validate.test.ts › RF-03/RNF-04: validateChartSemantics (seção 6.4) | src/agent/orchestrator.ts<br>src/agent/validate-docx.ts<br>src/agent/validate.ts<br>src/commands/validar.ts<br>src/data/catalog.ts<br>src/desktop/app.ts<br>src/desktop/run-store.ts<br>src/ingest/common.ts<br>src/llm/contracts.ts<br>src/llm/schema.ts<br>src/specs/schemas.ts |
+| RNF-04 | ativo | M3 | tests/docx-spec.test.ts › RNF-04: origem dos números em docx<br>tests/orchestrator.test.ts › RF-03/RNF-04: validação semântica (seção 6.4)<br>tests/pptx-spec.test.ts › RNF-04: números do pptx têm origem nos datasets referenciados<br>tests/probe-deck.test.ts › RNF-04: a sonda barra número sem origem<br>tests/validate.test.ts › RF-03/RNF-04: validateChartSemantics (seção 6.4) | src/agent/orchestrator.ts<br>src/agent/probe-deck.ts<br>src/agent/validate-docx.ts<br>src/agent/validate-pptx.ts<br>src/agent/validate.ts<br>src/commands/probe-deck.ts<br>src/commands/validar.ts<br>src/data/catalog.ts<br>src/desktop/app.ts<br>src/desktop/run-store.ts<br>src/ingest/common.ts<br>src/llm/contracts.ts<br>src/llm/schema.ts<br>src/specs/schemas.ts |
 | RNF-05 | planejado | M1 | — | — |
 | RNF-06 | planejado | M6 | — | — |
 | RNF-07 | planejado | M6 | — | — |

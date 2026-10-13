@@ -65,6 +65,7 @@ Todos rodam por `bun run src/cli.ts <comando>`. Códigos de saída: `0` sucesso;
 | Comando | Para que serve |
 |---|---|
 | `probe --schema chart` (ou `bun run probe`) | Pede ao modelo configurado uma especificação de gráfico mínima e a valida. Serve para testar a conexão com o provedor. |
+| `probe --schema deck [--out pasta] [--only D01,D02]` (ou `bun run probe:deck`) | Roda 10 pedidos de apresentação contra o modelo configurado, valida cada `PptxSpec` (inclusive a origem dos números) e grava `probe-deck.json` e `probe-deck.md` em `artifacts/probe-deck/<data>`. Não gera pptx: serve para medir se o modelo aguenta a estrutura e para você ler o conteúdo. |
 | `validar <arquivo.json>` | Valida uma spec de gráfico ou de documento (`"kind": "docx"`). Sem `kind`, é tratada como gráfico. Usa o dataset de exemplo `vendas`. |
 | `ingerir <arquivo.csv\|.md>` | Mostra como um arquivo é lido: colunas, tipos, hash SHA-256 e amostra de 5 linhas. |
 | `buscar "<consulta>" <arquivo...>` | Busca (BM25) nas seções dos arquivos e mostra os trechos e o bloco exato que iria ao prompt. |
